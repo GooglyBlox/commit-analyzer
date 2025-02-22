@@ -9,12 +9,13 @@ from rich.text import Text
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 class GitHubCommitAnalyzer:
-    def __init__(self, api_key):
+    def __init__(self, api_key=None):
         self.api_key = api_key
         self.headers = {
-            'Authorization': f'token {self.api_key}',
             'Accept': 'application/vnd.github.v3+json'
         }
+        if self.api_key:
+            self.headers['Authorization'] = f'token {self.api_key}'
         self.console = Console()
 
     def fetch_commits(self, repo_path, page=1, per_page=100, progress=None, task_id=None):
@@ -43,8 +44,18 @@ class GitHubCommitAnalyzer:
         response = requests.get(url, headers=self.headers, params=params)
         
         if response.status_code != 200:
-            self.console.print(f"[bold red]Error fetching commits: {response.status_code}[/bold red]")
-            self.console.print(response.json())
+            if response.status_code == 401 and not self.api_key:
+                self.console.print("[bold yellow]Warning: No API key provided.[/bold yellow]")
+                self.console.print("[yellow]Using GitHub API without authentication has very low rate limits.[/yellow]")
+                self.console.print("[yellow]Private repositories will not be accessible without an API key.[/yellow]")
+                self.console.print("[yellow]Please provide an API key for better results.[/yellow]\n")
+                self.console.print("[bold red]Error: Repository access denied. This may be a private repository.[/bold red]")
+            elif response.status_code == 403:
+                self.console.print("[bold red]Error: API rate limit exceeded.[/bold red]")
+                self.console.print("[yellow]Consider providing a GitHub API key to increase rate limits.[/yellow]")
+            else:
+                self.console.print(f"[bold red]Error fetching commits: {response.status_code}[/bold red]")
+                self.console.print(response.json())
             return []
         
         return response.json()
@@ -70,7 +81,11 @@ class GitHubCommitAnalyzer:
         response = requests.get(url, headers=self.headers)
         
         if response.status_code != 200:
-            self.console.print(f"[bold red]Error fetching commit details: {response.status_code}[/bold red]")
+            if response.status_code == 403:
+                self.console.print("[bold red]Error: API rate limit exceeded.[/bold red]")
+                self.console.print("[yellow]Consider providing a GitHub API key to increase rate limits.[/yellow]")
+            else:
+                self.console.print(f"[bold red]Error fetching commit details: {response.status_code}[/bold red]")
             return None
         
         return response.json()
@@ -97,6 +112,12 @@ class GitHubCommitAnalyzer:
         all_commits = []
         
         self.console.print(f"[bold blue]Analyzing repository: {repo_path}[/bold blue]")
+        
+        if not self.api_key:
+            self.console.print("[bold yellow]Warning: Running without API key.[/bold yellow]")
+            self.console.print("[yellow]- Public repositories will be available with limited access rate[/yellow]")
+            self.console.print("[yellow]- Private repositories are not accessible[/yellow]")
+            self.console.print("[yellow]- GitHub API limits: 60 requests per hour (unauthenticated)[/yellow]\n")
         
         with Progress(
             SpinnerColumn(),
