@@ -1,6 +1,7 @@
 # GitHub Commit Analyzer
 
 A Python application to analyze and display commit history for GitHub repositories with diff stats.
+![image](https://github.com/user-attachments/assets/807d656c-b5ed-45ba-908d-bffa3000b851)
 
 ## Requirements
 
